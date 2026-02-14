@@ -31,6 +31,10 @@ jobs:
           python -m pip install --upgrade pip
           pip install -r website/requirements.txt
 
+      - name: Sync notebooks into website/content
+        run: |
+          python scripts/sync_notebooks_to_website.py
+
       - name: Build Jupyter Book
         run: |
           jupyter-book build website

@@ -5,7 +5,9 @@ This folder contains a small Jupyter Book site that can be published via GitHub 
 Notebook source policy:
 
 - Ground-truth notebooks live in `../notebooks/sessions/`.
-- `website/content/` contains symlinks to those notebooks so there is no duplicated notebook content.
+- `website/content/*.ipynb` is generated from ground-truth notebooks by:
+  - `python scripts/sync_notebooks_to_website.py`
+- The GitHub Actions deployment workflow runs this sync step on every push before building the book.
 
 ## Build locally
 
@@ -13,6 +15,7 @@ From the repo root:
 
 ```bash
 pip install -r website/requirements.txt
+python scripts/sync_notebooks_to_website.py
 jupyter-book build website
 ```
 

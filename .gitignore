@@ -8,6 +8,7 @@ __pycache__/
 # Jupyter Book build artifacts
 website/_build/
 website/.jupyter_cache/
+website/content/*.ipynb
 
 # Local notes (not tracked remotely)
 notes/
