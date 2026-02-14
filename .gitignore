@@ -9,6 +9,9 @@ __pycache__/
 website/_build/
 website/.jupyter_cache/
 
+# Local notes (not tracked remotely)
+notes/
+
 # OS/editor
 .DS_Store
 .vscode/

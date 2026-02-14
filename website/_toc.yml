@@ -5,27 +5,5 @@ chapters:
     title: "Practical 1: K-armed Bandit"
   - file: content/session_02_mdp_dynamic_programming
     title: "Practical 2: Markov Decision Processes and Dynamic Programming"
-  - file: content/session_03_monte_carlo_methods
-    title: "Practical 3: Monte Carlo Methods"
-  - file: content/session_04_td_learning
-    title: "Practical 4: Temporal-Difference Learning"
-  - file: content/session_05_n_step_td_eligibility_traces
-    title: "Practical 5: n-step Returns and Eligibility Traces"
-  - file: content/session_06_function_approximation
-    title: "Practical 6: Function Approximation and Linear Value Estimation"
-  - file: content/session_07_dqn
-    title: "Practical 7: Deep Q-Networks (DQN)"
-  - file: content/session_08_dqn_improvements_rainbow
-    title: "Practical 8: DQN Improvements (Double DQN, Dueling, PER, Rainbow)"
-  - file: content/session_09_policy_gradients_actor_critic
-    title: "Practical 9: Policy Gradient Methods (REINFORCE and Actor-Critic)"
-  - file: content/session_10_advanced_policy_gradients
-    title: "Practical 10: Advanced Policy Gradients (A3C, TRPO, PPO)"
-  - file: content/session_11_off_policy_actor_critic
-    title: "Practical 11: Off-Policy Actor-Critic (DDPG, TD3, SAC)"
-  - file: content/session_12_intrinsic_motivation_exploration
-    title: "Practical 12: Intrinsic Motivation and Exploration"
-  - file: content/session_13_model_based_rl_world_models
-    title: "Practical 13: Model-Based RL and World Models"
-  - file: content/session_14_advanced_topics
-    title: "Practical 14: Advanced Topics (Distributional RL, Offline RL, Curriculum, RLHF)"
+  - file: content/source_references
+    title: "Source References"
