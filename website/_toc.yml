@@ -1,7 +1,7 @@
 format: jb-book
 root: intro
 chapters:
-  - file: content/session_01_k_armed_bandit_blank
+  - file: content/session_01_k_armed_bandit
     title: "Practical 1: K-armed Bandit"
   - file: content/session_02_mdp_dynamic_programming
     title: "Practical 2: Markov Decision Processes and Dynamic Programming"

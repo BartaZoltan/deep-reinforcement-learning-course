@@ -7,6 +7,11 @@ The course website and course material structure were developed with support fro
 - Codex (OpenAI)
 - ChatGPT (OpenAI)
 
+## Contributions
+
+- Balázs Nagy
+- Domonkos Nagy
+
 ## Core Literature
 
 - Sutton, R. S., & Barto, A. G. (2018). *Reinforcement Learning: An Introduction* (2nd ed.). MIT Press.
