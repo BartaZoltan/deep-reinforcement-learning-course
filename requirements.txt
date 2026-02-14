@@ -1,0 +1,23 @@
+# Core notebook/runtime
+jupyterlab
+ipykernel
+
+# Scientific Python
+numpy
+scipy
+pandas
+matplotlib
+seaborn
+tqdm
+
+# Reinforcement learning
+# PyTorch (CPU build via pip; Colab already includes torch but this keeps local installs consistent)
+torch
+
+# Gymnasium environments used for classic RL exercises
+# - classic-control: CartPole, MountainCar, etc.
+# - toy-text: FrozenLake, etc.
+gymnasium[classic-control,toy-text]
+
+# Rendering helper for some Gymnasium envs
+pygame

@@ -1,0 +1,23 @@
+# Jupyter Book configuration
+# Docs: https://jupyterbook.org/en/stable/customize/config.html
+
+title: Deep Reinforcement Learning Course
+author: Zoltán Barta
+logo: assets/logo.png
+
+# Keep builds fast for GitHub Pages. We render notebooks as-is (no execution).
+execute:
+  execute_notebooks: off
+
+# Optional: make notebooks feel more like a course website
+html:
+  use_edit_page_button: false
+  use_issues_button: false
+
+sphinx:
+  config:
+    html_show_copyright: false
+    exclude_patterns:
+      - _build
+      - _build/**
+      - README.md

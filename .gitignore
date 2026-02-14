@@ -1,0 +1,15 @@
+# Python
+__pycache__/
+*.pyc
+
+# Jupyter
+.ipynb_checkpoints/
+
+# Jupyter Book build artifacts
+website/_build/
+website/.jupyter_cache/
+
+# OS/editor
+.DS_Store
+.vscode/
+.idea/
