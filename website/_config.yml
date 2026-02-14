@@ -3,7 +3,7 @@
 
 title: Deep Reinforcement Learning Course
 author: Zoltán Barta
-logo: assets/logo.png
+logo: https://raw.githubusercontent.com/BartaZoltan/deep-reinforcement-learning-course/main/notebooks/shared_assets/logo.png
 
 # Keep builds fast for GitHub Pages. We render notebooks as-is (no execution).
 execute:
