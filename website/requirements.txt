@@ -3,3 +3,4 @@
 
 # Pin to the Python-only Jupyter Book 1.x series (Jupyter Book 2.x requires Node.js)
 jupyter-book>=1.0.0,<2
+sphinxcontrib-bibtex>=2.6.0
