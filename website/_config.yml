@@ -14,6 +14,9 @@ html:
   use_edit_page_button: false
   use_issues_button: false
 
+bibtex_bibfiles:
+  - ../notebooks/sessions/session_01_k_armed_bandit/references.bib
+
 sphinx:
   config:
     html_show_copyright: false
