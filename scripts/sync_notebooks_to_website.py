@@ -6,6 +6,8 @@ import re
 import sys
 
 TASK_HEADING_PATTERN = re.compile(r"^\s*###\s*Task\s+\d+\b")
+DELIMITER_LINE = "#" * 72
+GITHUB_RAW_BASE = "https://raw.githubusercontent.com/BartaZoltan/deep-reinforcement-learning-course/main"
 
 
 def main() -> int:
@@ -38,6 +40,7 @@ def main() -> int:
         src_default = session_dir / f"{stem}.ipynb"
         src_empty = session_dir / f"{stem}_empty.ipynb"
         src_student = session_dir / f"{stem}_student.ipynb"
+        src_homework = session_dir / f"{stem}_homework.ipynb"
 
         # Non-notebook content page (e.g. source_references.md)
         if md_target.exists() and not src_default.exists():
@@ -56,7 +59,14 @@ def main() -> int:
             missing_exercise.append(str(src_empty.relative_to(repo_root)))
             continue
 
-        _generate_web_notebook(src_default, dst)
+        homework_name = f"{stem}_homework.ipynb" if src_homework.exists() else None
+        _generate_web_notebook(
+            src_default,
+            dst,
+            stem=stem,
+            exercise_name=exercise_name,
+            homework_name=homework_name,
+        )
         _rewrite_colab_link(dst, stem, exercise_name)
         generated += 1
 
@@ -149,7 +159,41 @@ def _extract_image_paths_from_output(
     return saved_paths
 
 
-def _generate_web_notebook(input_path: Path, output_path: Path) -> None:
+def _download_links_cell(stem: str, exercise_name: str, homework_name: str | None) -> dict:
+    session_base = f"{GITHUB_RAW_BASE}/notebooks/sessions/{stem}"
+    lines = [
+        "### Downloads\n",
+        "\n",
+        f"- [Notebook (.ipynb)]({session_base}/{stem}.ipynb)\n",
+        f"- [Student version (.ipynb)]({session_base}/{exercise_name})\n",
+    ]
+    if homework_name:
+        lines.append(f"- [Homework (.ipynb)]({session_base}/{homework_name})\n")
+    return {"cell_type": "markdown", "metadata": {}, "source": lines}
+
+
+def _homework_footer_cell(stem: str, homework_name: str) -> dict:
+    session_base = f"{GITHUB_RAW_BASE}/notebooks/sessions/{stem}"
+    return {
+        "cell_type": "markdown",
+        "metadata": {},
+        "source": [
+            "---\n",
+            "\n",
+            "### Homework\n",
+            "\n",
+            f"- [Download homework notebook (.ipynb)]({session_base}/{homework_name})\n",
+        ],
+    }
+
+
+def _generate_web_notebook(
+    input_path: Path,
+    output_path: Path,
+    stem: str,
+    exercise_name: str,
+    homework_name: str | None,
+) -> None:
     notebook = json.loads(input_path.read_text(encoding="utf-8"))
     cells = notebook.get("cells", [])
     filtered = [cell for cell in cells if not _is_task_markdown_cell(cell)]
@@ -167,6 +211,10 @@ def _generate_web_notebook(input_path: Path, output_path: Path) -> None:
         new_cells.append(cell)
         if cell.get("cell_type") != "code":
             continue
+
+        # Remove authoring delimiters from rendered web version.
+        source = cell.get("source", []) or []
+        cell["source"] = [line for line in source if line.strip() != DELIMITER_LINE]
 
         outputs = cell.get("outputs", []) or []
         embedded_paths: list[str] = []
@@ -197,6 +245,17 @@ def _generate_web_notebook(input_path: Path, output_path: Path) -> None:
                     "source": lines,
                 }
             )
+
+    # Add explicit download links near the top of the page.
+    downloads_cell = _download_links_cell(stem=stem, exercise_name=exercise_name, homework_name=homework_name)
+    if new_cells and new_cells[0].get("cell_type") == "markdown":
+        new_cells.insert(1, downloads_cell)
+    else:
+        new_cells.insert(0, downloads_cell)
+
+    # Add homework download callout at page bottom when available.
+    if homework_name:
+        new_cells.append(_homework_footer_cell(stem=stem, homework_name=homework_name))
 
     notebook["cells"] = new_cells
     output_path.write_text(json.dumps(notebook, ensure_ascii=False, indent=2) + "\n", encoding="utf-8")
