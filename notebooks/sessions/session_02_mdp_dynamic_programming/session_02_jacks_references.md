@@ -1,3 +1,0 @@
-# References
-
-- Sutton-Barto book
