@@ -119,3 +119,11 @@ A notebook végén legyen egy rövid sanity-check blokk, ami ellenőrzi:
 - Canonical: postfix nélküli notebook (root forrás)
 - Student: `_student.ipynb`
 - Web: `_web.ipynb`
+
+## 9) Colab badge self-link szabály
+
+- Minden notebook Colab badge linkje a **saját fájljára** mutasson (ne a canonical vagy másik verzióra).
+- Ez igaz a canonical, student, web és homework notebookokra is.
+- Ajánlott forma:
+  - `https://colab.research.google.com/github/BartaZoltan/deep-reinforcement-learning-course/blob/main/<notebook-path>`
+- Student/web generálás után ezt mindig validálni kell.
