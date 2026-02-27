@@ -3,11 +3,16 @@ import base64
 from pathlib import Path
 import json
 import re
+import shutil
 import sys
 
 TASK_HEADING_PATTERN = re.compile(r"^\s*###\s*Task\s+\d+\b")
 DELIMITER_LINE = "#" * 72
 GITHUB_RAW_BASE = "https://raw.githubusercontent.com/BartaZoltan/deep-reinforcement-learning-course/main"
+SAVED_ASSET_PATH_PATTERN = re.compile(
+    r"(assets/web_outputs/[^\s\)\]\"']+\.(?:gif|png|jpg|jpeg))",
+    flags=re.IGNORECASE,
+)
 
 
 def main() -> int:
@@ -159,6 +164,39 @@ def _extract_image_paths_from_output(
     return saved_paths
 
 
+def _extract_saved_asset_paths_from_output(
+    output: dict,
+    output_parent: Path,
+    source_parent: Path,
+) -> list[str]:
+    text_chunks: list[str] = []
+    output_type = output.get("output_type")
+
+    if output_type == "stream":
+        text = output.get("text", "")
+        text_chunks.append("".join(text) if isinstance(text, list) else str(text))
+    elif output_type in {"display_data", "execute_result"}:
+        data = output.get("data", {})
+        if isinstance(data, dict) and "text/plain" in data:
+            text = data["text/plain"]
+            text_chunks.append("".join(text) if isinstance(text, list) else str(text))
+
+    found: list[str] = []
+    for chunk in text_chunks:
+        for rel_path in SAVED_ASSET_PATH_PATTERN.findall(chunk):
+            rel_path = rel_path.rstrip(".,;:")
+            dst = output_parent / rel_path
+            src = source_parent / rel_path
+            if src.exists():
+                dst.parent.mkdir(parents=True, exist_ok=True)
+                shutil.copy2(src, dst)
+                found.append(rel_path)
+            elif dst.exists():
+                found.append(rel_path)
+
+    return found
+
+
 def _download_links_cell(stem: str, exercise_name: str, homework_name: str | None) -> dict:
     session_base = f"{GITHUB_RAW_BASE}/notebooks/sessions/{stem}"
     lines = [
@@ -219,17 +257,26 @@ def _generate_web_notebook(
         outputs = cell.get("outputs", []) or []
         embedded_paths: list[str] = []
         for out_idx, output in enumerate(outputs):
-            if output.get("output_type") not in {"display_data", "execute_result"}:
-                continue
-            prefix = f"{notebook_stem}_cell{cell_idx:03d}_out{out_idx:02d}"
+            if output.get("output_type") in {"display_data", "execute_result"}:
+                prefix = f"{notebook_stem}_cell{cell_idx:03d}_out{out_idx:02d}"
+                embedded_paths.extend(
+                    _extract_image_paths_from_output(
+                        output=output,
+                        assets_dir=session_assets,
+                        filename_prefix=prefix,
+                        output_parent=output_parent,
+                    )
+                )
             embedded_paths.extend(
-                _extract_image_paths_from_output(
+                _extract_saved_asset_paths_from_output(
                     output=output,
-                    assets_dir=session_assets,
-                    filename_prefix=prefix,
                     output_parent=output_parent,
+                    source_parent=input_path.parent,
                 )
             )
+
+        # Keep deterministic order while removing duplicates.
+        embedded_paths = list(dict.fromkeys(embedded_paths))
 
         cell["outputs"] = []
         cell["execution_count"] = None
