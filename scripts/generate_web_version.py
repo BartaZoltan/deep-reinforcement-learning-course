@@ -9,6 +9,25 @@ from pathlib import Path
 
 
 TASK_HEADING_PATTERN = re.compile(r"^\s*###\s*Task\s+\d+\b")
+DELIMITER_LINE = "#" * 72
+GITHUB_RAW_BASE = "https://raw.githubusercontent.com/BartaZoltan/deep-reinforcement-learning-course/main"
+CELL_OUTPUT_FILE_PATTERN = re.compile(
+    r"CELL_OUTPUT_DIR\s*/\s*['\"]([^'\"]+\.(?:gif|png|jpg|jpeg))['\"]",
+    flags=re.IGNORECASE,
+)
+CELL_OUTPUT_SUBDIR_PATTERN = re.compile(
+    r"output_dir\s*=\s*CELL_OUTPUT_DIR\s*/\s*['\"]([^'\"]+)['\"]"
+)
+CELL_OUTPUT_GIF_PATTERN = re.compile(
+    r"gif_name\s*=\s*['\"]([^'\"]+\.(?:gif|png|jpg|jpeg))['\"]",
+    flags=re.IGNORECASE,
+)
+MARKDOWN_ASSET_LINK_PATTERN = re.compile(
+    r"(!?\[[^\]]*\]\()(?P<path>assets/[^)\s]+)(\))"
+)
+HTML_ASSET_ATTR_PATTERN = re.compile(
+    r"(\b(?:src|href)=['\"])(?P<path>assets/[^'\"]+)(['\"])"
+)
 
 
 def _is_task_markdown_cell(cell: dict) -> bool:
@@ -68,6 +87,81 @@ def _extract_image_paths_from_output(
     return saved_paths
 
 
+def _github_raw_url_for(rel_path: str, source_parent: Path) -> str | None:
+    repo_root = Path(__file__).resolve().parents[1]
+    src = source_parent / rel_path
+    if not src.exists():
+        return None
+    try:
+        repo_rel = src.resolve().relative_to(repo_root.resolve()).as_posix()
+    except ValueError:
+        return None
+    return f"{GITHUB_RAW_BASE}/{repo_rel}"
+
+
+def _source_parent_raw_base(source_parent: Path) -> str | None:
+    repo_root = Path(__file__).resolve().parents[1]
+    try:
+        rel_parent = source_parent.resolve().relative_to(repo_root.resolve()).as_posix()
+    except ValueError:
+        return None
+    return f"{GITHUB_RAW_BASE}/{rel_parent}"
+
+
+def _rewrite_markdown_asset_links(cell: dict, source_parent: Path) -> None:
+    if cell.get("cell_type") != "markdown":
+        return
+
+    raw_base = _source_parent_raw_base(source_parent)
+    if raw_base is None:
+        return
+
+    source = "".join(cell.get("source", []) or [])
+    if "assets/" not in source:
+        return
+
+    def _markdown_repl(match: re.Match[str]) -> str:
+        path = match.group("path")
+        return f"{match.group(1)}{raw_base}/{path}{match.group(3)}"
+
+    def _html_repl(match: re.Match[str]) -> str:
+        path = match.group("path")
+        return f"{match.group(1)}{raw_base}/{path}{match.group(3)}"
+
+    rewritten = MARKDOWN_ASSET_LINK_PATTERN.sub(_markdown_repl, source)
+    rewritten = HTML_ASSET_ATTR_PATTERN.sub(_html_repl, rewritten)
+    cell["source"] = [rewritten]
+
+
+def _extract_saved_asset_paths_from_source(
+    cell: dict,
+    output_parent: Path,
+    source_parent: Path,
+) -> list[str]:
+    if cell.get("cell_type") != "code":
+        return []
+
+    source = "".join(cell.get("source", []) or [])
+    found: list[str] = []
+
+    for rel_file in CELL_OUTPUT_FILE_PATTERN.findall(source):
+        rel_path = f"assets/cell_outputs/{rel_file}"
+        raw_url = _github_raw_url_for(rel_path=rel_path, source_parent=source_parent)
+        if raw_url:
+            found.append(raw_url)
+
+    subdirs = CELL_OUTPUT_SUBDIR_PATTERN.findall(source)
+    gif_names = CELL_OUTPUT_GIF_PATTERN.findall(source)
+    for subdir in subdirs:
+        for gif_name in gif_names:
+            rel_path = f"assets/cell_outputs/{subdir}/{gif_name}"
+            raw_url = _github_raw_url_for(rel_path=rel_path, source_parent=source_parent)
+            if raw_url:
+                found.append(raw_url)
+
+    return list(dict.fromkeys(found))
+
+
 def generate_web_notebook(input_path: Path, output_path: Path) -> tuple[int, int]:
     notebook = json.loads(input_path.read_text(encoding="utf-8"))
     cells = notebook.get("cells", [])
@@ -85,24 +179,36 @@ def generate_web_notebook(input_path: Path, output_path: Path) -> tuple[int, int
 
     new_cells: list[dict] = []
     for cell_idx, cell in enumerate(filtered):
+        _rewrite_markdown_asset_links(cell=cell, source_parent=input_path.parent)
         new_cells.append(cell)
         if cell.get("cell_type") != "code":
             continue
 
-        outputs = cell.get("outputs", []) or []
-        embedded_paths: list[str] = []
-        for out_idx, output in enumerate(outputs):
-            if output.get("output_type") not in {"display_data", "execute_result"}:
-                continue
-            prefix = f"{notebook_stem}_cell{cell_idx:03d}_out{out_idx:02d}"
-            embedded_paths.extend(
-                _extract_image_paths_from_output(
-                    output=output,
-                    assets_dir=session_assets,
-                    filename_prefix=prefix,
-                    output_parent=output_parent,
+        source = cell.get("source", []) or []
+        cell["source"] = [line for line in source if line.strip() != DELIMITER_LINE]
+
+        source_asset_paths = _extract_saved_asset_paths_from_source(
+            cell=cell,
+            output_parent=output_parent,
+            source_parent=input_path.parent,
+        )
+        if source_asset_paths:
+            embedded_paths = source_asset_paths
+        else:
+            outputs = cell.get("outputs", []) or []
+            embedded_paths = []
+            for out_idx, output in enumerate(outputs):
+                if output.get("output_type") not in {"display_data", "execute_result"}:
+                    continue
+                prefix = f"{notebook_stem}_cell{cell_idx:03d}_out{out_idx:02d}"
+                embedded_paths.extend(
+                    _extract_image_paths_from_output(
+                        output=output,
+                        assets_dir=session_assets,
+                        filename_prefix=prefix,
+                        output_parent=output_parent,
+                    )
                 )
-            )
 
         # Clear runtime outputs from generated web notebook.
         cell["outputs"] = []

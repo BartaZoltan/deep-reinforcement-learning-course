@@ -3,10 +3,18 @@ from __future__ import annotations
 
 import argparse
 import json
+import re
 from pathlib import Path
 
 
 DEFAULT_DELIMITER = "#" * 72
+GITHUB_RAW_BASE = "https://raw.githubusercontent.com/BartaZoltan/deep-reinforcement-learning-course/main"
+MARKDOWN_ASSET_LINK_PATTERN = re.compile(
+    r"(!?\[[^\]]*\]\()(?P<path>assets/[^)\s]+)(\))"
+)
+HTML_ASSET_ATTR_PATTERN = re.compile(
+    r"(\b(?:src|href)=['\"])(?P<path>assets/[^'\"]+)(['\"])"
+)
 
 
 def _is_delimiter_line(line: str, delimiter: str) -> bool:
@@ -40,12 +48,47 @@ def _strip_between_delimiters(lines: list[str], delimiter: str) -> tuple[list[st
     return output, blanked
 
 
+def _source_parent_raw_base(source_parent: Path) -> str | None:
+    repo_root = Path(__file__).resolve().parents[1]
+    try:
+        rel_parent = source_parent.resolve().relative_to(repo_root.resolve()).as_posix()
+    except ValueError:
+        return None
+    return f"{GITHUB_RAW_BASE}/{rel_parent}"
+
+
+def _rewrite_markdown_asset_links(cell: dict, source_parent: Path) -> None:
+    if cell.get("cell_type") != "markdown":
+        return
+
+    raw_base = _source_parent_raw_base(source_parent)
+    if raw_base is None:
+        return
+
+    source = "".join(cell.get("source", []) or [])
+    if "assets/" not in source:
+        return
+
+    def _markdown_repl(match: re.Match[str]) -> str:
+        path = match.group("path")
+        return f"{match.group(1)}{raw_base}/{path}{match.group(3)}"
+
+    def _html_repl(match: re.Match[str]) -> str:
+        path = match.group("path")
+        return f"{match.group(1)}{raw_base}/{path}{match.group(3)}"
+
+    rewritten = MARKDOWN_ASSET_LINK_PATTERN.sub(_markdown_repl, source)
+    rewritten = HTML_ASSET_ATTR_PATTERN.sub(_html_repl, rewritten)
+    cell["source"] = [rewritten]
+
+
 def generate_student_notebook(input_path: Path, output_path: Path, delimiter: str = DEFAULT_DELIMITER) -> tuple[int, int]:
     notebook = json.loads(input_path.read_text(encoding="utf-8"))
     code_cells = 0
     blanked_lines = 0
 
     for cell in notebook.get("cells", []):
+        _rewrite_markdown_asset_links(cell=cell, source_parent=input_path.parent)
         if cell.get("cell_type") != "code":
             continue
         code_cells += 1
