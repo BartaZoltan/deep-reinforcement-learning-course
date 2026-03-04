@@ -62,12 +62,12 @@ def main() -> int:
             missing.append(str(session_dir.relative_to(repo_root)))
             continue
 
-        src_default = _find_canonical_notebook(session_dir)
-        if src_default is None:
-            missing.append(str(session_dir.relative_to(repo_root)))
+        src_web = _find_web_notebook(session_dir)
+        if src_web is None:
+            missing_web.append(str(session_dir.relative_to(repo_root)))
             continue
 
-        canonical_name = src_default.stem
+        canonical_name = src_web.stem.removesuffix("_web")
         src_empty = session_dir / f"{canonical_name}_empty.ipynb"
         src_student = session_dir / f"{canonical_name}_student.ipynb"
         src_homework = session_dir / f"{canonical_name}_homework.ipynb"
@@ -82,11 +82,6 @@ def main() -> int:
             continue
 
         homework_name = f"{canonical_name}_homework.ipynb" if src_homework.exists() else None
-        src_web = session_dir / f"{canonical_name}_web.ipynb"
-        if not src_web.exists():
-            missing_web.append(str(src_web.relative_to(repo_root)))
-            continue
-
         shutil.copy2(src_web, dst)
         _rewrite_colab_link(dst, stem, exercise_name)
         generated += 1
@@ -114,17 +109,11 @@ def main() -> int:
     return 0
 
 
-def _find_canonical_notebook(session_dir: Path) -> Path | None:
+def _find_web_notebook(session_dir: Path) -> Path | None:
     candidates: list[Path] = []
     for p in session_dir.glob("*.ipynb"):
         name = p.name
-        if (
-            name.endswith("_web.ipynb")
-            or name.endswith("_student.ipynb")
-            or name.endswith("_empty.ipynb")
-            or name.endswith("_homework.ipynb")
-            or ".pre_dev_backup." in name
-        ):
+        if not name.endswith("_web.ipynb") or ".pre_dev_backup." in name:
             continue
         candidates.append(p)
 
