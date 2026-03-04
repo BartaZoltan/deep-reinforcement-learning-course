@@ -162,6 +162,20 @@ def _extract_saved_asset_paths_from_source(
     return list(dict.fromkeys(found))
 
 
+def _to_raw_urls(rel_paths: list[str], source_parent: Path) -> list[str]:
+    resolved: list[str] = []
+    for rel_path in rel_paths:
+        if rel_path.startswith("http://") or rel_path.startswith("https://"):
+            resolved.append(rel_path)
+            continue
+        raw_url = _github_raw_url_for(rel_path=rel_path, source_parent=source_parent)
+        if raw_url:
+            resolved.append(raw_url)
+        else:
+            resolved.append(rel_path)
+    return resolved
+
+
 def generate_web_notebook(input_path: Path, output_path: Path) -> tuple[int, int]:
     notebook = json.loads(input_path.read_text(encoding="utf-8"))
     cells = notebook.get("cells", [])
@@ -209,6 +223,7 @@ def generate_web_notebook(input_path: Path, output_path: Path) -> tuple[int, int
                         output_parent=output_parent,
                     )
                 )
+            embedded_paths = _to_raw_urls(embedded_paths, source_parent=input_path.parent)
 
         # Clear runtime outputs from generated web notebook.
         cell["outputs"] = []

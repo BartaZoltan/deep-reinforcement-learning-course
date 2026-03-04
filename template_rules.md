@@ -1,129 +1,108 @@
 # Notebook Template Rules
 
-Ez a fájl a kurzus-notebookok formátum- és generálási szabályait rögzíti.
+Ez a dokumentum a kurzus-notebookok forrás- és generálási szabályainak egységes specifikációja.
 
-## 1) Canonical notebook (root, postfix nélkül)
+## 1) Source Of Truth
 
-- A **forrás / canonical** notebook mindig a postfix nélküli fájl:
-  - példa: `session_02_mdp_dynamic_programming.ipynb`
-- Ennek:
-  - Colabban futtathatónak kell lennie,
-  - lokálisan (Jupyter) futtathatónak kell lennie.
+- A canonical notebook mindig a postfix nélküli fájl.
+- Példa: `session_02_mdp_dynamic_programming.ipynb`.
+- A canonical verzió futtatható kell legyen:
+  - lokálisan (Jupyter),
+  - Google Colabban.
+- A `_student` és `_web` fájlok generált artefaktok, kézzel nem szerkesztjük őket.
 
-## 2) Kötelező szerkezeti stílus (Session 1 mintára)
+## 2) Kötelező notebook szerkezet
 
-- Nyitó blokk:
-  - Logo
-  - `Developers`, `Date`, `Version`
-  - Colab badge
-  - `# Practice X: ...`
-  - `## Summary`
-- Makro felépítés:
-  - `##` fő blokkok
-  - `### Task N` feladatblokkok
+- Nyitó blokk minden sessionben azonos stílusban:
+  - logo,
+  - `Developers`, `Date`, `Version`,
+  - Colab badge,
+  - `# Practice X: ...`,
+  - `## Summary` (rövid cél + tartalom).
+- Fő címek: `##`.
+- Feladatblokkok: `### Task N`.
 - Pedagógiai sorrend:
-  - rövid elmélet -> implementáció -> kísérletek -> interpretáció
-- Feladatleírás:
-  - mindig konkrét és ellenőrizhető (`What to implement`, `Expected behavior`, `Quick checks` jelleggel)
+  - elméleti alap,
+  - implementáció,
+  - kísérlet,
+  - rövid interpretáció.
 - Képletek:
-  - inline: `$...$`
-  - több soros / blokk: `$$...$$`
+  - inline: `$...$`,
+  - blokk: `$$...$$`.
 
-### 2.1) Kötelező header skeleton (canonical)
+## 3) Task formátum (kötelező)
 
-Minden canonical notebook eleje kövesse ezt a mintát:
+Minden task leírása ezt a formátumot kövesse:
 
-```md
-![Logo](...)
+1. `### Task N`
+2. üres sor
+3. `**Task name (X min)**`
+4. rövid, konkrét leírás arról, mit kell implementálni és mit kell ellenőrizni.
 
-**Developers:** ...  
-**Date:** YYYY-MM-DD  
-**Version:** ...
+Követelmény:
+- A leírás alapján a hallgató képes legyen a delimiter közötti kódot önállóan megírni.
+- A leírás ne legyen túl „machine-like”, de legyen technikailag pontos.
 
-[<img src="https://colab.research.google.com/assets/colab-badge.svg">](<colab-link>)
+## 4) Delimiter és student generálás
 
-# Practice X: <Title>
+- A megoldás-blokkokat a canonical notebookban markereli:
+  - `########################################################################` (pontosan 72 db `#`).
+- A `_student.ipynb` generáláskor a delimiter párok közti kód törlődik/blankelődik.
+- A blokk fölött mindig legyen task-instrukció markdownban vagy kommentben.
+- A student notebookban runtime output nem marad.
 
-## Summary
+## 5) Web generálás és output beágyazás
 
-<2-4 mondat rövid összefoglaló>
+- A `_web.ipynb` a canonical notebookból készül.
+- A `### Task N` markdown cellák kikerülnek.
+- Minden releváns vizuális outputot markdownként be kell ágyazni közvetlenül a forrás code cella után.
+- Támogatott források:
+  - notebook inline image output (`image/png`, `image/jpeg`, `image/gif`),
+  - szöveges outputban hivatkozott mentett asset (`Saved GIF/PNG: assets/web_outputs/...`).
+- Web asset célmappa: `assets/web_outputs/`.
+- A web generátor másolja át a mentett asseteket a website content alá is.
 
-Content outline:
-- ...
-- ...
-```
+## 6) Colab badge szabály
 
-Megkötés:
-- Ez ne legyen opcionális, hanem minden session notebookban egységesen jelenjen meg.
-
-## 3) Student verzió szabályai
-
-- A student notebook a canonical notebookból készül.
-- Fájlnév postfix: `_student.ipynb`.
-- A kód-kiszedés marker alapú:
-  - két delimiter sor közötti rész kerül blankolásra.
-  - delimiter: pontosan `########################################################################` (72 db `#`).
-- Elvárás:
-  - a delimiter blokk felett legyen markdown vagy komment formában rövid task-instrukció.
-- Student verzióban ne maradjon runtime output.
-
-## 4) Web verzió szabályai
-
-- A web notebook a canonical notebookból készül.
-- Fájlnév postfix: `_web.ipynb`.
-- A `### Task N` markdown cellák eltávolításra kerülnek.
-- A code outputokból exportált képek/GIF-ek markdownként beágyazásra kerülnek a webes notebookba.
-- A webes assetek célmappája: `assets/web_outputs/`.
-
-## 5) Eredmény-interpretációs szabály (web fókusz)
-
-- Minden fontos eredmény (plot/GIF) alatt legyen interpretáció:
-  - mit érdemes megfigyelni,
-  - mi a fő tanulság.
-- Ez a canonical szerkesztésnél legyen **jelölhető web-only elemmel**.
-- Követelmény:
-  - a jelölt interpretáció **csak a web verzióban** jelenjen meg,
-  - canonical és student verzióban ne jelenjen meg tanulói zavaró extra szövegként.
-
-Javasolt jelölés:
-- cell metadata tag: `web_only_explanation`
-- vagy egyértelmű marker komment (amit a web-generátor értelmez).
-
-Megjegyzés:
-- A generáló scripteknek támogatniuk kell ezt a jelölést.
-
-## 6) Reprodukálhatóság és futtathatóság
-
-- Random seed kezelés legyen explicit.
-- A notebook „Run all” után konzisztens eredményt adjon.
-- Külső függőség legyen minimális és dokumentált.
-
-## 7) Kötelező záró sanity check (minden canonical notebook végén)
-
-A notebook végén legyen egy rövid sanity-check blokk, ami ellenőrzi:
-
-1. Logikai felépítés:
-- a tananyag a könyv szerinti sorrendben halad,
-- a taskok egymásra épülnek.
-
-2. Technikai minőség:
-- nincs hibás Python kód,
-- nincs hibás markdown (képlet/formázás).
-
-3. Kimenetek:
-- minden fő eredményhez tartozik értelmezés (különösen webre),
-- minden hivatkozott asset (kép/GIF) létezik.
-
-## 8) Naming konvenció összefoglaló
-
-- Canonical: postfix nélküli notebook (root forrás)
-- Student: `_student.ipynb`
-- Web: `_web.ipynb`
-
-## 9) Colab badge self-link szabály
-
-- Minden notebook Colab badge linkje a **saját fájljára** mutasson (ne a canonical vagy másik verzióra).
-- Ez igaz a canonical, student, web és homework notebookokra is.
-- Ajánlott forma:
+- Minden notebook badge-je a saját fájljára mutasson.
+- Ez kötelező canonical, student, web és homework verziókra is.
+- Minta:
   - `https://colab.research.google.com/github/BartaZoltan/deep-reinforcement-learning-course/blob/main/<notebook-path>`
-- Student/web generálás után ezt mindig validálni kell.
+
+## 7) Reproducibility
+
+- Seed kezelés legyen explicit.
+- `Run all` után reprodukálható, konzisztens kimenetet adjon.
+- Külső dependency legyen minimális és dokumentált.
+
+## 8) Eredmény-interpretáció szabály
+
+- Minden fontos ábra/GIF után legyen rövid magyarázó markdown.
+- Ne csak azt írja le, „mi látszik”, hanem a fő tanulságot is.
+- A szöveg rövid, de informatív legyen.
+
+## 9) Kötelező sanity check a notebook végén
+
+A canonical notebook végén legyen ellenőrző blokk, ami validálja:
+
+1. logikai sorrend (könyv szerinti ív, taskok egymásra épülése),
+2. technikai minőség (nincs hibás Python/markdown),
+3. output integritás (hivatkozott képek/GIF-ek léteznek).
+
+## 10) Naming konvenció
+
+- Canonical: `<session_name>.ipynb`
+- Student: `<session_name>_student.ipynb`
+- Web: `<session_name>_web.ipynb`
+- Homework (ha van): `<session_name>_homework.ipynb`
+
+## 11) Ajánlott generálási workflow
+
+1. Canonical notebook frissítése és futtatása.
+2. Student verzió generálása.
+3. Web verzió generálása.
+4. Website sync futtatása (`scripts/sync_notebooks_to_website.py`).
+5. Gyors ellenőrzés:
+   - Colab badge self-linkek,
+   - beágyazott outputok megjelennek,
+   - website build nem veszít el GIF-eket.
