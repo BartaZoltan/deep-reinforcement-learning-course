@@ -4,6 +4,7 @@ __pycache__/
 
 # Jupyter
 .ipynb_checkpoints/
+*_solution.ipynb
 
 # Jupyter Book build artifacts
 website/_build/
