@@ -7,5 +7,7 @@ chapters:
     title: "Practice 2: Markov Decision Processes and Dynamic Programming"
   - file: content/3_monte_carlo_methods
     title: "Practice 3: Monte Carlo Methods"
+  - file: content/4_td_learning
+    title: "Practice 4: Temporal-Difference Learning"
   - file: content/source_references
     title: "Sources & References"
