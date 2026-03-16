@@ -8,7 +8,7 @@ import re
 from pathlib import Path
 
 
-TASK_HEADING_PATTERN = re.compile(r"^\s*###\s*Task\s+\d+\b")
+TASK_HEADING_PATTERN = re.compile(r"^\s*##+\s*Task\s+\d+\b")
 DELIMITER_LINE = "#" * 72
 GITHUB_RAW_BASE = "https://raw.githubusercontent.com/BartaZoltan/deep-reinforcement-learning-course/main"
 CELL_OUTPUT_FILE_PATTERN = re.compile(

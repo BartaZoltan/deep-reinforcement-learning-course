@@ -3,43 +3,228 @@
 from __future__ import annotations
 
 from pathlib import Path
-import importlib.util
-import urllib.request
+import random
 
 import matplotlib.pyplot as plt
 import numpy as np
+from IPython.display import HTML
+from matplotlib.colors import ListedColormap, TwoSlopeNorm
 
 
 N_ROWS = 4
 N_COLS = 12
 START_STATE = (N_ROWS - 1) * N_COLS
+CLIFF_ACTION_SYMBOLS = {
+    0: "↑",
+    1: "→",
+    2: "↓",
+    3: "←",
+}
+
+S3_COLOR_S = "#A7D3F5"
+S3_COLOR_F = "#FFFFFF"
+S3_COLOR_H = "#F8B4B4"
+S3_COLOR_G = "#B7E4C7"
 
 
-def load_session4_utils():
-    """Load Session 4 plotting helpers from local path or GitHub fallback."""
-    candidates = [
-        Path("notebooks/sessions/4_td_learning/utils.py"),
-        Path("../4_td_learning/utils.py"),
-        Path("sessions/4_td_learning/utils.py"),
-        Path("/content/notebooks/sessions/4_td_learning/utils.py"),
-    ]
+def set_seed(seed: int = 42) -> np.random.Generator:
+    """Set Python/NumPy seeds and return a default RNG."""
+    random.seed(seed)
+    np.random.seed(seed)
+    return np.random.default_rng(seed)
 
-    utils_path = next((p for p in candidates if p.exists()), None)
 
-    if utils_path is None:
-        utils_path = Path("notebooks/sessions/4_td_learning/utils.py")
-        utils_path.parent.mkdir(parents=True, exist_ok=True)
-        url = (
-            "https://raw.githubusercontent.com/BartaZoltan/deep-reinforcement-learning-course/main/"
-            "notebooks/sessions/4_td_learning/utils.py"
-        )
-        urllib.request.urlretrieve(url, utils_path)
+def running_mean(values, window: int = 20) -> np.ndarray:
+    """Simple moving average with a growing prefix."""
+    values = np.asarray(values, dtype=float)
+    if len(values) == 0:
+        return values.copy()
 
-    spec = importlib.util.spec_from_file_location("session4_utils", utils_path)
-    module = importlib.util.module_from_spec(spec)
-    assert spec.loader is not None
-    spec.loader.exec_module(module)
-    return module
+    out = np.zeros_like(values, dtype=float)
+    for i in range(len(values)):
+        start = max(0, i - window + 1)
+        out[i] = np.mean(values[start : i + 1])
+    return out
+
+
+def _cell_label(r: int, c: int, n_rows: int, n_cols: int) -> str | None:
+    """Return a special label for start, cliff, and goal cells."""
+    if (r, c) == (n_rows - 1, 0):
+        return "S"
+    if (r, c) == (n_rows - 1, n_cols - 1):
+        return "G"
+    if r == n_rows - 1 and 0 < c < n_cols - 1:
+        return "H"
+    return None
+
+
+def _terrain_label(r: int, c: int, n_rows: int, n_cols: int) -> str:
+    """Return terrain label for a CliffWalking cell."""
+    special = _cell_label(r, c, n_rows, n_cols)
+    if special is not None:
+        return special
+    return "F"
+
+
+def _base_grid(n_rows: int, n_cols: int):
+    """Create a base CliffWalking grid figure."""
+    grid = np.ones((n_rows, n_cols), dtype=float)
+    cmap = ListedColormap(["#f7f7f7"])
+    fig, ax = plt.subplots(figsize=(12, 4))
+    ax.imshow(grid, cmap=cmap, vmin=0, vmax=1)
+    ax.set_xticks(range(n_cols))
+    ax.set_yticks(range(n_rows))
+    ax.set_xticks(np.arange(-0.5, n_cols, 1), minor=True)
+    ax.set_yticks(np.arange(-0.5, n_rows, 1), minor=True)
+    ax.grid(which="minor", color="black", linewidth=0.8)
+    ax.tick_params(which="minor", bottom=False, left=False)
+    return fig, ax
+
+
+def plot_cliffwalking_map(
+    n_rows: int = 4,
+    n_cols: int = 12,
+    title: str = "CliffWalking layout",
+):
+    """Plot a colored CliffWalking grid with S/H/F/G terrain labels."""
+    grid = np.zeros((n_rows, n_cols), dtype=int)
+    grid[n_rows - 1, 1 : n_cols - 1] = 1
+    grid[n_rows - 1, 0] = 2
+    grid[n_rows - 1, n_cols - 1] = 3
+
+    cmap = ListedColormap([S3_COLOR_F, S3_COLOR_H, S3_COLOR_S, S3_COLOR_G])
+
+    fig, ax = plt.subplots(figsize=(12, 4))
+    ax.imshow(grid, cmap=cmap, vmin=0, vmax=3)
+    ax.set_title(title)
+    ax.set_xticks(range(n_cols))
+    ax.set_yticks(range(n_rows))
+    ax.set_xticks(np.arange(-0.5, n_cols, 1), minor=True)
+    ax.set_yticks(np.arange(-0.5, n_rows, 1), minor=True)
+    ax.grid(which="minor", color="black", linewidth=0.8)
+    ax.tick_params(which="minor", bottom=False, left=False)
+
+    for r in range(n_rows):
+        for c in range(n_cols):
+            label = _terrain_label(r, c, n_rows, n_cols)
+            ax.text(c, r, label, ha="center", va="center", fontsize=11, fontweight="bold")
+
+    plt.tight_layout()
+    plt.show()
+
+
+def plot_cliffwalking_values(
+    values: np.ndarray,
+    n_rows: int = 4,
+    n_cols: int = 12,
+    title: str = "CliffWalking state values",
+):
+    """Plot a CliffWalking value heatmap."""
+    grid = np.asarray(values, dtype=float).reshape(n_rows, n_cols)
+    fig, ax = plt.subplots(figsize=(12, 4))
+    im = ax.imshow(grid, cmap="viridis")
+    ax.set_title(title)
+    ax.set_xticks(range(n_cols))
+    ax.set_yticks(range(n_rows))
+    ax.set_xticks(np.arange(-0.5, n_cols, 1), minor=True)
+    ax.set_yticks(np.arange(-0.5, n_rows, 1), minor=True)
+    ax.grid(which="minor", color="white", linewidth=0.8)
+    ax.tick_params(which="minor", bottom=False, left=False)
+
+    for s in range(min(len(values), n_rows * n_cols)):
+        r, c = divmod(s, n_cols)
+        special = _cell_label(r, c, n_rows, n_cols)
+        text = special if special is not None else f"{values[s]:.1f}"
+        color = "white" if special is None else "black"
+        ax.text(c, r, text, ha="center", va="center", fontsize=9, color=color, fontweight="bold")
+
+    fig.colorbar(im, ax=ax, label="V(s)")
+    plt.tight_layout()
+    plt.show()
+
+
+def plot_cliffwalking_value_difference(
+    values: np.ndarray,
+    reference: np.ndarray,
+    n_rows: int = 4,
+    n_cols: int = 12,
+    title: str = "CliffWalking value difference",
+):
+    """Plot a signed CliffWalking value difference heatmap."""
+    diff = np.asarray(values, dtype=float) - np.asarray(reference, dtype=float)
+    grid = diff.reshape(n_rows, n_cols)
+    vmax = float(np.max(np.abs(grid)))
+    vmax = max(vmax, 1e-8)
+
+    fig, ax = plt.subplots(figsize=(12, 4))
+    im = ax.imshow(grid, cmap="coolwarm", norm=TwoSlopeNorm(vmin=-vmax, vcenter=0.0, vmax=vmax))
+    ax.set_title(title)
+    ax.set_xticks(range(n_cols))
+    ax.set_yticks(range(n_rows))
+    ax.set_xticks(np.arange(-0.5, n_cols, 1), minor=True)
+    ax.set_yticks(np.arange(-0.5, n_rows, 1), minor=True)
+    ax.grid(which="minor", color="white", linewidth=0.8)
+    ax.tick_params(which="minor", bottom=False, left=False)
+
+    for s in range(min(len(diff), n_rows * n_cols)):
+        r, c = divmod(s, n_cols)
+        special = _cell_label(r, c, n_rows, n_cols)
+        text = special if special is not None else f"{diff[s]:+.1f}"
+        ax.text(c, r, text, ha="center", va="center", fontsize=9, color="black", fontweight="bold")
+
+    fig.colorbar(im, ax=ax, label="V(s) - reference")
+    plt.tight_layout()
+    plt.show()
+
+
+def plot_cliffwalking_policy(
+    actions: np.ndarray,
+    n_rows: int = 4,
+    n_cols: int = 12,
+    title: str = "CliffWalking greedy policy",
+):
+    """Plot a CliffWalking policy grid."""
+    fig, ax = _base_grid(n_rows, n_cols)
+    ax.set_title(title)
+
+    for s in range(min(len(actions), n_rows * n_cols)):
+        r, c = divmod(s, n_cols)
+        special = _cell_label(r, c, n_rows, n_cols)
+        label = special if special is not None else CLIFF_ACTION_SYMBOLS.get(int(actions[s]), "?")
+        ax.text(c, r, label, ha="center", va="center", fontsize=12, fontweight="bold")
+
+    plt.tight_layout()
+    plt.show()
+
+
+def plot_epsilon_greedy_action_probs(
+    epsilon: float,
+    greedy_action: int = 1,
+    n_actions: int = 4,
+    title: str = "Epsilon-greedy action probabilities",
+):
+    """Plot epsilon-greedy action probabilities for one state."""
+    probs = np.full(n_actions, float(epsilon) / float(n_actions), dtype=float)
+    greedy_action = int(greedy_action)
+    probs[greedy_action] += 1.0 - float(epsilon)
+
+    labels = [f"{CLIFF_ACTION_SYMBOLS.get(a, str(a))} ({a})" for a in range(n_actions)]
+    colors = ["#d1d5db"] * n_actions
+    colors[greedy_action] = "#60a5fa"
+
+    plt.figure(figsize=(6.2, 3.5))
+    plt.bar(np.arange(n_actions), probs, color=colors, edgecolor="black")
+    plt.xticks(np.arange(n_actions), labels)
+    plt.ylim(0.0, 1.0)
+    plt.ylabel("Probability")
+    plt.title(title)
+    plt.grid(True, axis="y", alpha=0.3)
+
+    for i, p in enumerate(probs):
+        plt.text(i, p + 0.02, f"{p:.2f}", ha="center", va="bottom", fontsize=9)
+
+    plt.tight_layout()
+    plt.show()
 
 
 def plot_many_curves(
@@ -73,6 +258,32 @@ def plot_many_curves(
     plt.legend()
     plt.tight_layout()
     plt.show()
+
+
+def render_side_by_side_gifs(
+    items: list[tuple[str, str | Path]],
+    *,
+    width: int = 360,
+) -> HTML:
+    """Return an HTML block that shows several GIFs next to each other."""
+    blocks: list[str] = []
+    for label, path in items:
+        src = Path(path).as_posix()
+        blocks.append(
+            (
+                '<div style="flex:0 0 auto;">'
+                f"<p><strong>{label}</strong></p>"
+                f"<img src=\"{src}\" width=\"{width}\">"
+                "</div>"
+            )
+        )
+
+    html = (
+        '<div style="display:flex; gap:24px; flex-wrap:nowrap; overflow-x:auto; align-items:flex-start;">'
+        + "".join(blocks)
+        + "</div>"
+    )
+    return HTML(html)
 
 
 def plot_metric_bars(metric_map: dict[str, float], *, title: str, ylabel: str):
