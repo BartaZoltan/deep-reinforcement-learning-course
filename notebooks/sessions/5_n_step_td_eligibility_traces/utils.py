@@ -373,7 +373,7 @@ def generate_policy_episode(
     valid_start_states: np.ndarray | None = None,
 ):
     """Generate one state-reward trajectory under a fixed policy."""
-    if exploring_starts and env.spec is not None and env.spec.id == "CliffWalking-v0":
+    if exploring_starts and env.spec is not None and env.spec.id == "CliffWalking-v1":
         if valid_start_states is None:
             valid_start_states = valid_cliff_start_states(env.observation_space.n)
         state = reset_cliff_with_exploring_start(env, rng, valid_start_states)
@@ -456,7 +456,7 @@ def export_cliffwalking_policy_rollout_gif(
     except ImportError as exc:
         raise ImportError("Pillow is required to export CliffWalking policy GIFs.") from exc
 
-    env = gym.make("CliffWalking-v0", render_mode="rgb_array")
+    env = gym.make("CliffWalking-v1", render_mode="rgb_array")
     output_dir = Path(output_dir)
     output_dir.mkdir(parents=True, exist_ok=True)
 
