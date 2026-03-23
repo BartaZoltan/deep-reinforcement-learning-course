@@ -6,6 +6,7 @@ import base64
 import json
 import re
 from pathlib import Path
+from urllib.parse import urlparse
 
 
 TASK_HEADING_PATTERN = re.compile(r"^\s*##+\s*Task\s+\d+\b")
@@ -22,11 +23,19 @@ CELL_OUTPUT_GIF_PATTERN = re.compile(
     r"gif_name\s*=\s*['\"]([^'\"]+\.(?:gif|png|jpg|jpeg))['\"]",
     flags=re.IGNORECASE,
 )
+LABEL_DRIVEN_GIF_PATTERN = re.compile(
+    r"gif_name\s*=\s*f['\"]\{label\.lower\(\)\.replace\(\" \", \"_\"\)\.replace\(\"-\", \"_\"\)\}\.gif['\"]"
+)
+ALGORITHM_LABEL_PATTERN = re.compile(r"'([^']+)'\s*:\s*semi_gradient_[a-z_]+")
 MARKDOWN_ASSET_LINK_PATTERN = re.compile(
     r"(!?\[[^\]]*\]\()(?P<path>assets/[^)\s]+)(\))"
 )
 HTML_ASSET_ATTR_PATTERN = re.compile(
     r"(\b(?:src|href)=['\"])(?P<path>assets/[^'\"]+)(['\"])"
+)
+OUTPUT_ASSET_PATH_PATTERN = re.compile(
+    r"assets/cell_outputs/[^'\"\s)>\]]+\.(?:gif|png|jpg|jpeg)",
+    flags=re.IGNORECASE,
 )
 
 
@@ -159,6 +168,38 @@ def _extract_saved_asset_paths_from_source(
             if raw_url:
                 found.append(raw_url)
 
+    if LABEL_DRIVEN_GIF_PATTERN.search(source):
+        for label in ALGORITHM_LABEL_PATTERN.findall(source):
+            gif_name = label.lower().replace(" ", "_").replace("-", "_") + ".gif"
+            rel_path = f"assets/cell_outputs/{gif_name}"
+            raw_url = _github_raw_url_for(rel_path=rel_path, source_parent=source_parent)
+            if raw_url:
+                found.append(raw_url)
+
+    return list(dict.fromkeys(found))
+
+
+def _extract_saved_asset_paths_from_outputs(outputs: list[dict], source_parent: Path) -> list[str]:
+    found: list[str] = []
+
+    for output in outputs:
+        text_chunks: list[str] = []
+
+        if "text" in output:
+            blob = output["text"]
+            text_chunks.append("".join(blob) if isinstance(blob, list) else str(blob))
+
+        data = output.get("data", {})
+        if isinstance(data, dict) and "text/plain" in data:
+            blob = data["text/plain"]
+            text_chunks.append("".join(blob) if isinstance(blob, list) else str(blob))
+
+        for chunk in text_chunks:
+            for rel_path in OUTPUT_ASSET_PATH_PATTERN.findall(chunk):
+                raw_url = _github_raw_url_for(rel_path=rel_path, source_parent=source_parent)
+                if raw_url:
+                    found.append(raw_url)
+
     return list(dict.fromkeys(found))
 
 
@@ -174,6 +215,50 @@ def _to_raw_urls(rel_paths: list[str], source_parent: Path) -> list[str]:
         else:
             resolved.append(rel_path)
     return resolved
+
+
+def _asset_title_from_path(path: str) -> str:
+    stem = Path(urlparse(path).path).stem.replace("_", " ")
+    stem = re.sub(r"\bcompare\b", "", stem, flags=re.IGNORECASE)
+    stem = re.sub(r"\s+", " ", stem).strip()
+    title = stem.title()
+    replacements = {
+        "Sarsa": "SARSA",
+        "Q Learning": "Q-learning",
+        "Semi Gradient": "Semi-gradient",
+        "Mountaincar": "MountainCar",
+        "Cartpole": "CartPole",
+        "Lunarlander": "LunarLander",
+        "Acrobot": "Acrobot",
+    }
+    for old, new in replacements.items():
+        title = title.replace(old, new)
+    return title or "Rollout"
+
+
+def _embedded_assets_markdown_lines(paths: list[str]) -> list[str]:
+    lines = ["<!-- Embedded output asset(s) -->\n"]
+    gif_paths = [path for path in paths if path.lower().endswith(".gif")]
+    other_paths = [path for path in paths if not path.lower().endswith(".gif")]
+
+    if gif_paths:
+        lines.append("\n")
+        lines.append(
+            "<div style=\"display:grid; grid-template-columns: repeat(2, minmax(260px, 1fr)); gap:24px; align-items:start;\">\n"
+        )
+        for path in gif_paths:
+            title = _asset_title_from_path(path)
+            lines.append("  <div style=\"text-align:center;\">\n")
+            lines.append(f"    <p><strong>{title}</strong></p>\n")
+            lines.append(f"    <img src=\"{path}\" width=\"380\" />\n")
+            lines.append("  </div>\n")
+        lines.append("</div>\n")
+        lines.append("\n")
+
+    for path in other_paths:
+        lines.append(f"![cell-output]({path})\n")
+
+    return lines
 
 
 def generate_web_notebook(input_path: Path, output_path: Path) -> tuple[int, int]:
@@ -210,7 +295,10 @@ def generate_web_notebook(input_path: Path, output_path: Path) -> tuple[int, int
             embedded_paths = source_asset_paths
         else:
             outputs = cell.get("outputs", []) or []
-            embedded_paths = []
+            embedded_paths = _extract_saved_asset_paths_from_outputs(
+                outputs=outputs,
+                source_parent=input_path.parent,
+            )
             for out_idx, output in enumerate(outputs):
                 if output.get("output_type") not in {"display_data", "execute_result"}:
                     continue
@@ -223,21 +311,18 @@ def generate_web_notebook(input_path: Path, output_path: Path) -> tuple[int, int
                         output_parent=output_parent,
                     )
                 )
-            embedded_paths = _to_raw_urls(embedded_paths, source_parent=input_path.parent)
+            embedded_paths = _to_raw_urls(list(dict.fromkeys(embedded_paths)), source_parent=input_path.parent)
 
         # Clear runtime outputs from generated web notebook.
         cell["outputs"] = []
         cell["execution_count"] = None
 
         if embedded_paths:
-            lines = ["<!-- Embedded output asset(s) -->\n"]
-            for rel_path in embedded_paths:
-                lines.append(f"![cell-output]({rel_path})\n")
             new_cells.append(
                 {
                     "cell_type": "markdown",
                     "metadata": {},
-                    "source": lines,
+                    "source": _embedded_assets_markdown_lines(embedded_paths),
                 }
             )
 
