@@ -13,5 +13,7 @@ chapters:
     title: "Practice 5: n-step Returns and Eligibility Traces"
   - file: content/6_function_approximation
     title: "Practice 6: Function Approximation"
+  - file: content/7_deep_q_networks
+    title: "Practice 7: Deep Q-Networks (DQN)"
   - file: content/source_references
     title: "Sources & References"
